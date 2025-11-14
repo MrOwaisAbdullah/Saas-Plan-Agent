@@ -253,9 +253,7 @@ business_plan_generator_agent = Agent(
             financial_analyst_agent.as_tool(tool_name="project_financials", tool_description="Project SaaS financials. Input must be a single formatted string in the format: 'Startup Name: [name] | Idea: [idea] | Target Market: [market] | Key Features: [features]'"),
             exec_summary_agent.as_tool(tool_name="write_summary", tool_description="Write SaaS executive summary. Input must be a single formatted string in the format: 'Startup Name: [name] | Idea: [idea] | Target Market: [market] | Key Features: [features]'"),
         ],
-        instructions="""
-        Generate a comprehensive SaaS business plan using the 6-part prompting framework.
-        
+        instructions="""        
         Command: Create a professional SaaS business plan with structured sections focusing on recurring revenue metrics.
         
         Context: You are a SaaS business plan expert working with a startup that provides software-as-a-service solutions. The startup information comes as a single formatted string with 4 key elements: name, idea, target market, and key features. Focus on SaaS-specific metrics, strategies, and financial projections.
