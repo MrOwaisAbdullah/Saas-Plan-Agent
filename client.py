@@ -14,25 +14,25 @@ except ImportError:
 
 enable_verbose_stdout_logging()
 
-# Load environment variables
-load_dotenv(find_dotenv())
-gemini_api_key = os.getenv("GEMINI_API_KEY")
+# # Load environment variables
+# load_dotenv(find_dotenv())
+# gemini_api_key = os.getenv("GEMINI_API_KEY")
 
-if not gemini_api_key:
-    raise ValueError("GEMINI_API_KEY is not set. Please define it in your .env file.")
+# if not gemini_api_key:
+#     raise ValueError("GEMINI_API_KEY is not set. Please define it in your .env file.")
 
-# Setup Gemini client
-external_client = AsyncOpenAI(
-    api_key=gemini_api_key,
-    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-)
+# # Setup Gemini client
+# external_client = AsyncOpenAI(
+#     api_key=gemini_api_key,
+#     base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+# )
 
-# Preferred Gemini model setup
-model = OpenAIChatCompletionsModel(
-    model="gemini-2.5-pro", openai_client=external_client
-)
+# # Preferred Gemini model setup
+# model = OpenAIChatCompletionsModel(
+#     model="gemini-2.5-pro", openai_client=external_client
+# )
 
-# model = "gpt-5-nano"
+model = "gpt-5-nano"
 
 # Runner config (you can export this)
 config = RunConfig(model=model)

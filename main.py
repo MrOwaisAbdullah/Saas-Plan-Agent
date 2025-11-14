@@ -28,7 +28,7 @@ async def start():
     })
 
     await cl.Message(content="""
-🚀 **Welcome to the Business Plan Generator!**
+🚀 **Welcome to the SaaS Business Plan Generator!**
 
 I'll help you create a comprehensive SaaS business plan.
 Tell me about your startup idea, and I'll gather the necessary information to create your business plan.
@@ -82,8 +82,8 @@ async def main(message: cl.Message):
         )
 
         # Create a status message for the process
-        msg = cl.Message(content="🔄 Processing your request...")
-        await msg.send()
+        status_msg = cl.Message(content="🔄 Processing your request...")
+        await status_msg.send()
 
         # Track which specialist agent is currently being called
         current_tool = None
@@ -96,6 +96,9 @@ async def main(message: cl.Message):
             "write_summary": "📝 Writing executive summary..."
         }
 
+        # Store the final response content
+        final_response_content = ""
+
         # Stream events as they arrive
         async for event in result.stream_events():
             # Handle text deltas for the main response
@@ -103,15 +106,17 @@ async def main(message: cl.Message):
                 if hasattr(event.data, 'type'):
                     if event.data.type == 'response.text.delta':
                         if hasattr(event.data, 'delta') and event.data.delta:
-                            await msg.stream_token(event.data.delta)
+                            # Add to final response content for later use
+                            final_response_content += event.data.delta
+                            await status_msg.stream_token(event.data.delta)
                     elif event.data.type == 'response.output_item.added':
                         # Check if this is a function/tool call
                         if hasattr(event.data, 'item') and hasattr(event.data.item, 'name'):
                             tool_name = event.data.item.name
                             current_tool = tool_name
                             status_text = tool_status_messages.get(tool_name, f"🔄 Processing: {tool_name}...")
-                            msg.content = status_text
-                            await msg.update()
+                            status_msg.content = status_text
+                            await status_msg.update()
 
             # Handle when run items happen (tool calls, outputs, etc.)
             elif event.type == "run_item_stream_event":
@@ -121,31 +126,39 @@ async def main(message: cl.Message):
                         tool_name = getattr(event, 'name', 'unknown')
                         if tool_name and tool_name in tool_status_messages:
                             current_tool = tool_name
-                            msg.content = tool_status_messages[tool_name]
-                            await msg.update()
+                            status_msg.content = tool_status_messages[tool_name]
+                            await status_msg.update()
                     elif event.item.type == "tool_call_output_item":
                         # Tool call completed - update status
                         if current_tool:
-                            msg.content = f"✅ Completed {current_tool.replace('_', ' ').title()}... Generating next section..."
-                            await msg.update()
+                            status_msg.content = f"✅ Completed {current_tool.replace('_', ' ').title()}... Generating next section..."
+                            await status_msg.update()
                     elif event.item.type == "message_output_item":
                         # Handle message output items
                         try:
                             from agents import ItemHelpers
                             message_content = ItemHelpers.text_message_output(event.item)
-                            await msg.stream_token(message_content)
+                            # Add to final response content for later use
+                            final_response_content += message_content
+                            await status_msg.stream_token(message_content)
                         except:
                             # Fallback if ItemHelpers is not available or fails
                             pass
 
-        # Final update to the message
-        await msg.update()
+        # At this point, we have the complete response in final_response_content
+        # Remove the status message and send the final response as a new message
+        await status_msg.remove()  # Remove the status message
 
-        # Get the final response content
-        response = msg.content
+        # Send the final response as a new message
+        if final_response_content.strip():
+            final_msg = cl.Message(content=final_response_content)
+            await final_msg.send()
+        else:
+            # If somehow we don't have content from streaming, use the status message content
+            await status_msg.update()
 
         # Check if response contains a business plan (indicating generation phase)
-        if "# Business Plan:" in response:
+        if "# Business Plan:" in final_response_content:
             # We have a complete business plan, reset session
             import uuid
             session_id = f"conversation_{uuid.uuid4().hex[:8]}"
