@@ -59,16 +59,3 @@ When a user shares their SaaS idea, the application follows these steps:
 3. **Automatic Generation**: Once all information is collected, the business plan is automatically generated
 
 The conversation is context-aware, meaning it remembers what information has already been provided and only asks for missing elements.
-
-## Simplification Achievements
-
-The application has been simplified in the following ways:
-
-### 1. Single-Step Generation
-The system now collects information and generates the business plan in a unified conversation flow, eliminating the need for separate phases.
-
-### 2. Eliminated Custom Information Extraction
-The custom regex-based functions for extracting information have been removed, as the agent now handles information extraction natively without requiring manual parsing.
-
-### 3. Unified Agent for Both Phases
-A single `business_plan_generator_agent` handles both the information gathering and business plan generation phases, switching behavior dynamically based on the completeness of provided information.
