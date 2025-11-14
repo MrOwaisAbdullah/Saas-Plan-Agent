@@ -282,12 +282,8 @@ business_plan_generator_agent = Agent(
         5. Call project_financials_agent ONCE with all SaaS startup information as a single formatted string
         6. Call write_summary_agent ONCE with all SaaS startup information as a single formatted string
         7. Compile all sections into the final SaaS business plan
-        7. Compile all into the final business plan
 
         FORMAT YOUR BUSINESS PLAN OUTPUT AS:
-        Roleplay: You are a senior SaaS business consultant with deep expertise in recurring revenue models, SaaS metrics, and investor presentations.
-        
-        Formatting: FORMAT YOUR BUSINESS PLAN OUTPUT AS:
         # SaaS Business Plan: [Startup Name]
         
         ## Executive Summary
