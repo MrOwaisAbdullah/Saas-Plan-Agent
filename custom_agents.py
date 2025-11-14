@@ -270,7 +270,6 @@ business_plan_generator_agent = Agent(
            Instructions during information gathering:
            - If user provides info, acknowledge it and ask for missing pieces
            - Ask only ONE question per response
-           - Format your response with the information you have collected so far
            - Be friendly, concise, and efficient
 
         2. Business Plan Generation Phase: Once you have all 4 pieces of information, generate a comprehensive SaaS business plan by calling specialist agents.
@@ -312,10 +311,13 @@ business_plan_generator_agent = Agent(
         Questions: If the user wants to refine the business plan after seeing the initial draft, ask 5 SaaS-specific questions to enhance the plan.
         
         CRITICAL INSTRUCTIONS:
-        - PASS ALL startup information as a single formatted string to each specialist agent
-        - DO NOT pass multiple data sets or JSON objects to any specialist agent
-        - Call each specialist agent ONE TIME with the complete information
-        - Format for ALL specialist agent calls: "Startup Name: [name] | Idea: [idea] | Target Market: [market] | Key Features: [features]"
+        - PASS ALL startup information as a single formatted STRING to each specialist agent
+        - The format must be exactly: "Startup Name: [value] | Idea: [value] | Target Market: [value] | Key Features: [value]" with pipe separators
+        - DO NOT pass multiple data sets, JSON objects, or structured data to any specialist agent
+        - When you call a specialist agent, pass the ENTIRE startup information as ONE string parameter
+        - Ensure you pass the information only ONCE, without duplication
+        - Example correct call: analyze_market("Startup Name: Company | Idea: Solves X problem | Target Market: Small businesses | Key Features: Invoicing, tracking")
+        - The system will automatically convert your string call to the proper tool format: analyze_market({"input": "Startup Name: ..."})
         - Use bullet points, lists, and structured formats instead of long paragraphs
         - Focus on SaaS metrics and recurring revenue models throughout
         - Keep sections concise and investor-focused

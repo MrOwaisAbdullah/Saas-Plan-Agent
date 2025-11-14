@@ -6,14 +6,20 @@ Shows live progress as agents work
 import asyncio
 import chainlit as cl
 from custom_agents import business_plan_generator_agent
-from agents import Runner
+from agents import Runner, SQLiteSession
 from openai.types.responses import ResponseTextDeltaEvent
 
 
 @cl.on_chat_start
 async def start():
     """Initialize the chatbot"""
-    cl.user_session.set("conversation_history", [])
+    # Create a session for maintaining conversation history
+    # Using unique session ID per user conversation
+    import uuid
+    session_id = f"conversation_{uuid.uuid4().hex[:8]}"
+    session = SQLiteSession(session_id)
+    cl.user_session.set("session", session)
+    
     cl.user_session.set("startup_info", {
         "name": None,
         "idea": None,
@@ -58,7 +64,7 @@ async def main(message: cl.Message):
     """Handle all conversations with the unified agent"""
 
     user_message = message.content
-    conversation_history = cl.user_session.get("conversation_history", [])
+    session = cl.user_session.get("session")
     startup_info = cl.user_session.get("startup_info", {
         "name": None,
         "idea": None,
@@ -66,33 +72,13 @@ async def main(message: cl.Message):
         "key_features": None,
     })
 
-    # Add user message to history
-    conversation_history.append({"role": "user", "content": user_message})
-    cl.user_session.set("conversation_history", conversation_history)
-
     try:
-        # Create a context string that includes current startup info and user message
-        # Format startup information as a single string that the agent can use when calling specialist tools
-        # Use | as a separator to avoid comma interpretation as argument separators
-        startup_info_str = f"Startup Name: {startup_info.get('name', 'Not provided')} | Idea: {startup_info.get('idea', 'Not provided')} | Target Market: {startup_info.get('target_market', 'Not provided')} | Key Features: {startup_info.get('key_features', 'Not provided')}"
-        
-        context_message = f"""
-        Current startup information gathered: {startup_info_str}
-
-        Latest user message: {user_message}
-
-        Your task:
-        1. If the user is providing startup information, acknowledge it and ask for any missing pieces.
-        2. If all required information is available (name, idea, target market, key features), generate the complete business plan by calling each specialist agent with this EXACT format: "{startup_info_str}"
-        3. If information is missing, ask for the specific missing piece.
-
-        IMPORTANT: When calling specialist agents, pass the startup information as a single string using the exact format shown above with | as separators.
-        """
-
-        # Run the unified business plan generator with a single streaming call for both phases
+        # The agent is designed to handle the conversation flow, so we just send the user's message.
+        # The agent's instructions will guide it to either gather more information or generate the plan.
         result = Runner.run_streamed(
             business_plan_generator_agent,
-            context_message
+            user_message,
+            session=session
         )
 
         # Create a status message for the process
@@ -161,7 +147,10 @@ async def main(message: cl.Message):
         # Check if response contains a business plan (indicating generation phase)
         if "# Business Plan:" in response:
             # We have a complete business plan, reset session
-            cl.user_session.set("conversation_history", [])
+            import uuid
+            session_id = f"conversation_{uuid.uuid4().hex[:8]}"
+            session = SQLiteSession(session_id)  # Create a new session for next conversation
+            cl.user_session.set("session", session)
             cl.user_session.set("startup_info", {
                 "name": None,
                 "idea": None,
@@ -182,7 +171,11 @@ Please try again or provide more details about your startup.
 @cl.on_chat_end
 def end():
     """Clean up when chat ends"""
-    cl.user_session.set("conversation_history", None)
+    session = cl.user_session.get("session")
+    if session:
+        # Optionally clear the session data
+        pass
+    cl.user_session.set("session", None)
     cl.user_session.set("startup_info", None)
     print("Chat ended")
 
