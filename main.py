@@ -81,9 +81,12 @@ async def main(message: cl.Message):
             session=session
         )
 
-        # Create a status message for the process
+        # Create a status message for the process (this will show tool call statuses)
         status_msg = cl.Message(content="🔄 Processing your request...")
         await status_msg.send()
+
+        # Don't create response_msg immediately; create it only when we have content to stream
+        response_msg = None
 
         # Track which specialist agent is currently being called
         current_tool = None
@@ -96,33 +99,34 @@ async def main(message: cl.Message):
             "write_summary": "📝 Writing executive summary..."
         }
 
-        # Store the final response content
-        final_response_content = ""
-
         # Stream events as they arrive
         async for event in result.stream_events():
-            # Handle text deltas for the main response
+            # Handle raw response events (for text streaming and function calls)
             if event.type == "raw_response_event":
-                if hasattr(event.data, 'type'):
-                    if event.data.type == 'response.text.delta':
-                        if hasattr(event.data, 'delta') and event.data.delta:
-                            # Add to final response content for later use
-                            final_response_content += event.data.delta
-                            await status_msg.stream_token(event.data.delta)
-                    elif event.data.type == 'response.output_item.added':
-                        # Check if this is a function/tool call
-                        if hasattr(event.data, 'item') and hasattr(event.data.item, 'name'):
-                            tool_name = event.data.item.name
+                # Handle text deltas for the main response content
+                from openai.types.responses import ResponseTextDeltaEvent
+                if isinstance(event.data, ResponseTextDeltaEvent):
+                    if hasattr(event.data, 'delta') and event.data.delta:
+                        # Create response_msg only when we have content to stream
+                        if response_msg is None:
+                            response_msg = cl.Message(content="")
+                            await response_msg.send()
+                        await response_msg.stream_token(event.data.delta)
+                # Handle when response output items are added (like function calls)
+                elif hasattr(event.data, 'type') and event.data.type == 'response.output_item.added':
+                    if hasattr(event.data, 'item') and hasattr(event.data.item, 'name'):
+                        tool_name = event.data.item.name
+                        if tool_name in tool_status_messages:  # Only for our specialist agents
                             current_tool = tool_name
-                            status_text = tool_status_messages.get(tool_name, f"🔄 Processing: {tool_name}...")
+                            status_text = tool_status_messages[tool_name]
                             status_msg.content = status_text
                             await status_msg.update()
 
-            # Handle when run items happen (tool calls, outputs, etc.)
+            # Handle run item stream events (for tool calls and their outputs)
             elif event.type == "run_item_stream_event":
                 if hasattr(event, 'item'):
                     if event.item.type == "tool_call_item":
-                        # Tool call started
+                        # Tool call started - update status
                         tool_name = getattr(event, 'name', 'unknown')
                         if tool_name and tool_name in tool_status_messages:
                             current_tool = tool_name
@@ -138,24 +142,26 @@ async def main(message: cl.Message):
                         try:
                             from agents import ItemHelpers
                             message_content = ItemHelpers.text_message_output(event.item)
-                            # Add to final response content for later use
-                            final_response_content += message_content
-                            await status_msg.stream_token(message_content)
+                            # Create response_msg only when we have content to stream
+                            if response_msg is None:
+                                response_msg = cl.Message(content="")
+                                await response_msg.send()
+                            # Stream the message content to the response message
+                            await response_msg.stream_token(message_content)
                         except:
                             # Fallback if ItemHelpers is not available or fails
+                            # Still try to stream whatever content we can
                             pass
 
-        # At this point, we have the complete response in final_response_content
-        # Remove the status message and send the final response as a new message
-        await status_msg.remove()  # Remove the status message
+        # Final update to response message if it was created
+        if response_msg:
+            await response_msg.update()
 
-        # Send the final response as a new message
-        if final_response_content.strip():
-            final_msg = cl.Message(content=final_response_content)
-            await final_msg.send()
-        else:
-            # If somehow we don't have content from streaming, use the status message content
-            await status_msg.update()
+        # Remove the status message when done
+        await status_msg.remove()
+
+        # Get the final response content if response_msg was created
+        final_response_content = response_msg.content if response_msg else ""
 
         # Check if response contains a business plan (indicating generation phase)
         if "# Business Plan:" in final_response_content:
